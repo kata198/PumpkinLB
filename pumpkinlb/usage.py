@@ -13,7 +13,7 @@ Starts Pumpkin Load Balancer using the given config file.
   Signals:
   
     SIGTERM                        Kills Default capture device: ALSA Default
-    SIGUSR1                        Re-read the config, and alter service to match
+    SIGUSR1                        Re-read the config, and alter service to match TODO: NOT DONE
 ''' %(os.path.basename(sys.argv[0]),)
     )
 

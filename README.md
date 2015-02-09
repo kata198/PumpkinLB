@@ -35,6 +35,11 @@ So an example to listen on port 80 localhost and farm out to 3 apache servers on
 
 80=192.168.1.100:80,192.168.1.101:80,192.168.1.102:80
 
+
+
+Sending SIGTERM, SIGINT, or pressing control+c will do a graceful shutdown (it will wait for up to 4 seconds to finish any active requests, and then terminate).
+
+
 Installation
 ============
 
