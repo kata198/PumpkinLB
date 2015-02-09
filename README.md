@@ -39,6 +39,9 @@ So an example to listen on port 80 localhost and farm out to 3 apache servers on
 Sending SIGTERM, SIGINT, or pressing control+c will do a graceful shutdown (it will wait for up to 4 seconds to finish any active requests, and then terminate).
 
 
+Requests are generally handled round-robin between the various workers. If a request fails on a backend worker, it will be retried on another random worker until it succeeds, and a message will be logged.
+
+
 Installation
 ============
 
