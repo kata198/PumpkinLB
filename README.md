@@ -4,7 +4,7 @@ A simple, fast, pure-python load balancer
 Description
 ===========
 
-PumpkinLB is a fast multi-process load balancer, compatible with Linux, Cygwin, and Windows environments. It listens for requests on local ports, and farms them out to any number of workers. You can use it to very quickly setup a load balancer, e.x. from 1 front point to 5 different apache servers.
+PumpkinLB is a fast multi-process TCP load balancer, compatible with: Linux, Cygwin, and Windows environments. It listens for requests on local ports, and farms them out to any number of workers. You can use it to very quickly setup a load balancer, e.x. from 1 front point to 5 different apache servers.
 
 Each incoming port is waited-on by a distinct process, and each connection is yet another process, thus it performs very well even under heavy load.
 
