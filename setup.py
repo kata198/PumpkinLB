@@ -48,7 +48,7 @@ setup(name='PumpkinLB',
         description='A simple, fast, pure-python load balancer',
         long_description=long_description,
         license='GPLv3',
-        keywords=['load balancer', 'load balance', 'python', 'balance', 'lb', 'http', 'socket', 'port', 'forward', 'tcp', 'fast', 'server', 'network']
+        keywords=['load balancer', 'load balance', 'python', 'balance', 'lb', 'http', 'socket', 'port', 'forward', 'tcp', 'fast', 'server', 'network'],
         classifiers=['Development Status :: 4 - Beta',
                      'Programming Language :: Python',
                      'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
