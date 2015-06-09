@@ -27,6 +27,8 @@ class PumpkinListener(multiprocessing.Process):
 
         self.listenSocket = None
 
+        self.cleanupThread = None
+
         self.keepGoing = True
 
     def cleanup(self):
@@ -40,8 +42,9 @@ class PumpkinListener(multiprocessing.Process):
             time.sleep(1.5)
 
     def closeWorkers(self, *args):
-        sys.stdout.write("GOT SIGNAL on %s:%d\n" %(self.localAddr, self.localPort))
         self.keepGoing = False
+
+        time.sleep(1)
 
         try:
             self.listenSocket.shutdown(socket.SHUT_RDWR)
@@ -53,6 +56,8 @@ class PumpkinListener(multiprocessing.Process):
             pass
 
         if not self.pumpkinWorkers:
+            self.cleanupThread and self.cleanupThread.join(3)
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
             sys.exit(0)
 
         for pumpkinWorker in self.pumpkinWorkers:
@@ -64,6 +69,7 @@ class PumpkinListener(multiprocessing.Process):
 
         time.sleep(1)
 
+
         remainingWorkers = []
         for pumpkinWorker in self.pumpkinWorkers:
             pumpkinWorker.join(.03)
@@ -74,6 +80,10 @@ class PumpkinListener(multiprocessing.Process):
             time.sleep(1)
             for pumpkinWorker in remainingWorkers:
                 pumpkinWorker.join(.2)
+
+        self.cleanupThread and self.cleanupThread.join(2)
+
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
         sys.exit(0)
 
@@ -122,7 +132,7 @@ class PumpkinListener(multiprocessing.Process):
 
         listenSocket.listen(5)
 
-        cleanupThread = threading.Thread(target=self.cleanup)
+        self.cleanupThread = cleanupThread = threading.Thread(target=self.cleanup)
         cleanupThread.start()
         if len(self.workers) > 1:
             retryThread = threading.Thread(target=self.retryFailedWorkers)
@@ -148,10 +158,9 @@ class PumpkinListener(multiprocessing.Process):
         except Exception as e:
             sys.stderr.write('Got exception: %s, shutting down worker on %s:%d\n' %(str(e), self.localAddr, self.localPort))
             self.closeWorkers()
+            return
 
 
-        # If we got here, must have been signlaed to terminate. Stay open for a short bit to try to close children, then tank.
-        time.sleep(6)
-        sys.exit(0)
+        self.closeWorkers()
 
-# vim: ts=4 sw=4 expandtab
+ 

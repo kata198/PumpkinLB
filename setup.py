@@ -37,7 +37,7 @@ Requests are generally handled round-robin between the various workers. If a req
 """
 
 setup(name='PumpkinLB',
-        version='1.2.1',
+        version='1.3',
         scripts=['PumpkinLB.py'],
         packages=['pumpkinlb'],
         author='Tim Savannah',
@@ -46,6 +46,7 @@ setup(name='PumpkinLB',
         maintainer_email='kata198@gmail.com',
         provides=['PumpkinLB'],
         description='A simple, fast, pure-python load balancer',
+        url='https://github.com/kata198/PumpkinLB',
         long_description=long_description,
         license='GPLv3',
         keywords=['load balancer', 'load balance', 'python', 'balance', 'lb', 'http', 'socket', 'port', 'forward', 'tcp', 'fast', 'server', 'network'],

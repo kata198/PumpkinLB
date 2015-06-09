@@ -42,6 +42,7 @@ class PumpkinWorker(multiprocessing.Process):
             self.clientSocket.close()
         except:
             pass
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
     def closeConnectionsAndExit(self, *args):
         self.closeConnections()
@@ -61,44 +62,47 @@ class PumpkinWorker(multiprocessing.Process):
 
         signal.signal(signal.SIGTERM, self.closeConnectionsAndExit)
 
-        dataToClient = ''
-        dataFromClient = ''
-        while True:
-            waitingToWrite = []
+        try:
+            dataToClient = ''
+            dataFromClient = ''
+            while True:
+                waitingToWrite = []
 
-            if dataToClient:
-                waitingToWrite.append(clientSocket)
-            if dataFromClient:
-                waitingToWrite.append(workerSocket)
+                if dataToClient:
+                    waitingToWrite.append(clientSocket)
+                if dataFromClient:
+                    waitingToWrite.append(workerSocket)
+                
+
+                (hasDataForRead, readyForWrite, hasError) = select.select( [clientSocket, workerSocket], waitingToWrite, [clientSocket, workerSocket], .3)
+
+                if hasError:
+                    break
             
+                if clientSocket in hasDataForRead:
+                    nextData = clientSocket.recv(4096)
+                    if not nextData:
+                        break
+                    dataFromClient += nextData
 
-            (hasDataForRead, readyForWrite, hasError) = select.select( [clientSocket, workerSocket], waitingToWrite, [clientSocket, workerSocket], .3)
+                if workerSocket in hasDataForRead:
+                    nextData = workerSocket.recv(4096)
+                    if not nextData:
+                        break
+                    dataToClient += nextData
+            
+                if workerSocket in readyForWrite:
+                    while dataFromClient:
+                        workerSocket.send(dataFromClient[:4096])
+                        dataFromClient = dataFromClient[4096:]
 
-            if hasError:
-                break
-        
-            if clientSocket in hasDataForRead:
-                nextData = clientSocket.recv(4096)
-                if not nextData:
-                    break
-                dataFromClient += nextData
+                if clientSocket in readyForWrite:
+                    while dataToClient:
+                        clientSocket.send(dataToClient[:4096])
+                        dataToClient = dataToClient[4096:]
 
-            if workerSocket in hasDataForRead:
-                nextData = workerSocket.recv(4096)
-                if not nextData:
-                    break
-                dataToClient += nextData
-        
-            if workerSocket in readyForWrite:
-                while dataFromClient:
-                    workerSocket.send(dataFromClient[:4096])
-                    dataFromClient = dataFromClient[4096:]
+        except Exception as e:
+            sys.stderr.write('Error: ' + str(e) + '\n')
 
-            if clientSocket in readyForWrite:
-                while dataToClient:
-                    clientSocket.send(dataToClient[:4096])
-                    dataToClient = dataToClient[4096:]
+        self.closeConnectionsAndExit()
 
-        self.closeConnections()
-
-# vim: ts=4 sw=4 expandtab

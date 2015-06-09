@@ -1,11 +1,13 @@
 #!/usr/bin/python2
 
-import os
+import math
 import multiprocessing
+import os
 import platform
 import socket
 import sys
 import signal
+import threading
 import traceback
 import time
 
@@ -14,6 +16,7 @@ from pumpkinlb.usage import printUsage, printConfigHelp
 from pumpkinlb.listener import PumpkinListener
 
 if __name__ == '__main__':
+
     configFilename = None
     for arg in sys.argv[1:]:
         if arg == '--help':
@@ -69,43 +72,70 @@ if __name__ == '__main__':
                 pass
         sys.stderr.write('Sent signal to children, waiting up to 4 seconds then trying to clean up\n')
         time.sleep(1)
+        startTime = time.time()
         remainingListeners = listeners
-        for i in xrange(3):
-            remainingListeners2 = []
-            for listener in remainingListeners:
-                sys.stderr.write('Waiting on %d...\n' %(listener.pid,))
-                sys.stderr.flush()
-                listener.join(.005)
-                if listener.is_alive() is True:
-                    remainingListeners2.append(listener)
-            remainingListeners = remainingListeners2
-            sys.stderr.write('Remaining (%d) listeners are: %s\n' %(len(remainingListeners), [listener.pid for listener in remainingListeners]))
+        remainingListeners2 = []
+        for listener in remainingListeners:
+            sys.stderr.write('Waiting on %d...\n' %(listener.pid,))
             sys.stderr.flush()
-            if len(remainingListeners) == 0:
-                break
-            time.sleep(1)
+            listener.join(.05)
+            if listener.is_alive() is True:
+                remainingListeners2.append(listener)
+        remainingListeners = remainingListeners2
+        sys.stderr.write('Remaining (%d) listeners are: %s\n' %(len(remainingListeners), [listener.pid for listener in remainingListeners]))
+        sys.stderr.flush()
 
-        if len(remainingListeners) > 0:
-            sys.stderr.write('After trying to clean up, %d listeners remain.\n' %(len(remainingListeners)))
-            for listener in remainingListeners:
-                try:
-                    os.kill(listener.pid, signal.SIGKILL)
-                except:
-                    pass
-            time.sleep(.1)
-            sys.stderr.write('Starting final join\n')
-            sys.stderr.flush()
-            for listener in remainingListeners:
-                listener.join()
-            sys.stderr.write('Done\n')
-            sys.stderr.flush()
-         
-        if '_NT' in platform.system():
-            # Some issue on windows, or at least cygwin on windows, causes an infinite loop in this signal handler when trying to kill the process. CThe only way out is to cause an exception between here and the next call, so provide a function with invalid arguments.
-            sys.stderr.write('You can ignore the below exception, it is used to quit on NT\n')
-            signal.signal(signal.SIGTERM, sys.exit)
-            signal.signal(signal.SIGINT, sys.exit)
+        afterJoinTime = time.time()
+
+        if remainingListeners:
+            delta = afterJoinTime - startTime
+            remainingSleep = int(6 - math.floor(afterJoinTime - startTime))
+            if remainingSleep > 0:
+                anyAlive = False
+                # If we still have time left, see if we are just done or if there are children to clean up using remaining time allotment
+                if threading.activeCount() > 1 or len(multiprocessing.active_children()) > 0:
+                    sys.stderr.write('Listener closed in %1.2f seconds. Waiting up to %d seconds before terminating.\n' %(delta, remainingSleep))
+                    sys.stderr.flush()
+                    thisThread = threading.current_thread()
+                    for i in range(remainingSleep):
+                        allThreads = threading.enumerate()
+                        anyAlive = False
+                        for thread in allThreads:
+                            if thread is thisThread or thread.name == 'MainThread':
+                                continue
+                            thread.join(.05)
+                            if thread.is_alive() == True:
+                                anyAlive = True
+
+                        allChildren = multiprocessing.active_children()
+                        for child in allChildren:
+                            child.join(.05)
+                            if child.is_alive() == True:
+                                anyAlive = True
+                        if anyAlive is False:
+                            break
+                        time.sleep(1)
+
+                if anyAlive is True:
+                    sys.stderr.write('Could not kill in time.\n')
+                else:
+                    sys.stderr.write('Shutdown successful after %1.2f seconds.\n' %( time.time() - startTime))
+                sys.stderr.flush()
+                    
+            else:
+                sys.stderr.write('Listener timed out in closing, exiting uncleanly.\n')
+                sys.stderr.flush()
+                time.sleep(.05) # Why not? :P
+
+        sys.stdout.write('exiting...\n')
+        sys.stdout.flush()
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
         sys.exit(0)
+        os.kill(os.getpid(), signal.SIGTERM)
+        return 0
+    # END handleSigTerm
+        
 
     signal.signal(signal.SIGTERM, handleSigTerm)
     signal.signal(signal.SIGINT, handleSigTerm)
@@ -116,4 +146,4 @@ if __name__ == '__main__':
         except:
             os.kill(os.getpid(), signal.SIGTERM)
 
-    # vim: ts=4 sw=4 expandtab
+# vim: set ts=4 sw=4 expandtab
