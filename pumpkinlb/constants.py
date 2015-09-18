@@ -3,5 +3,7 @@
 #
 # See: https://github.com/kata198/PumpkinLB
 
-__version__ = '1.4'
-__version_tuple__ = (1, 4, 0)
+
+GRACEFUL_SHUTDOWN_TIME = 6
+
+DEFAULT_BUFFER_SIZE = 4096

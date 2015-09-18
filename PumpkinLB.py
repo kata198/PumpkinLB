@@ -1,4 +1,9 @@
 #!/usr/bin/python2
+#
+# PumpkinLB Copyright (c) 2014-2015 Tim Savannah under GPLv3.
+# You should have received a copy of the license as LICENSE 
+#
+# See: https://github.com/kata198/PumpkinLB
 
 import math
 import multiprocessing
@@ -11,9 +16,17 @@ import threading
 import traceback
 import time
 
+from pumpkinlb import __version__ as pumpkin_version
+
 from pumpkinlb.config import PumpkinConfig, PumpkinMapping
-from pumpkinlb.usage import printUsage, printConfigHelp
+from pumpkinlb.usage import printUsage, printConfigHelp, getVersionStr
 from pumpkinlb.listener import PumpkinListener
+from pumpkinlb.constants import GRACEFUL_SHUTDOWN_TIME
+
+from pumpkinlb.log import logmsg, logerr
+
+
+
 
 if __name__ == '__main__':
 
@@ -24,6 +37,9 @@ if __name__ == '__main__':
             sys.exit(0)
         elif arg == '--help-config':
             printConfigHelp(sys.stdout)
+            sys.exit(0)
+        elif arg == '--version':
+            sys.stdout.write(getVersionStr() + '\n')
             sys.exit(0)
         elif configFilename is not None:
             sys.stderr.write('Too many arguments.\n\n')
@@ -45,12 +61,14 @@ if __name__ == '__main__':
         printConfigHelp(sys.stderr)
         sys.exit(1)
 
+    bufferSize = pumpkinConfig.getOptionValue('buffer_size')
+    logmsg('Configured buffer size = %d bytes\n' %(bufferSize,))
+
     mappings = pumpkinConfig.getMappings()
     listeners = []
     for mappingAddr, mapping in mappings.iteritems():
-        listenerArgs = mapping.getListenerArgs()
-        sys.stdout.write('Starting up listener: ' + str(listenerArgs) + '\n')
-        listener = PumpkinListener(*listenerArgs)
+        logmsg('Starting up listener on %s:%d with mappings: %s\n' %(mapping.localAddr, mapping.localPort, str(mapping.workers)))
+        listener = PumpkinListener(mapping.localAddr, mapping.localPort, mapping.workers, bufferSize)
         listener.start()
         listeners.append(listener)
 
@@ -60,42 +78,39 @@ if __name__ == '__main__':
     def handleSigTerm(*args):
         global listeners
         global globalIsTerminating
-        sys.stderr.write('CALLED\n')
+#        sys.stderr.write('CALLED\n')
         if globalIsTerminating is True:
             return # Already terminating
         globalIsTerminating = True
-        sys.stdout.write('Caught signal, shutting down listeners...\n')
+        logerr('Caught signal, shutting down listeners...\n')
         for listener in listeners:
             try:
                 os.kill(listener.pid, signal.SIGTERM)
             except:
                 pass
-        sys.stderr.write('Sent signal to children, waiting up to 4 seconds then trying to clean up\n')
+        logerr('Sent signal to children, waiting up to 4 seconds then trying to clean up\n')
         time.sleep(1)
         startTime = time.time()
         remainingListeners = listeners
         remainingListeners2 = []
         for listener in remainingListeners:
-            sys.stderr.write('Waiting on %d...\n' %(listener.pid,))
-            sys.stderr.flush()
+            logerr('Waiting on %d...\n' %(listener.pid,))
             listener.join(.05)
             if listener.is_alive() is True:
                 remainingListeners2.append(listener)
         remainingListeners = remainingListeners2
-        sys.stderr.write('Remaining (%d) listeners are: %s\n' %(len(remainingListeners), [listener.pid for listener in remainingListeners]))
-        sys.stderr.flush()
+        logerr('Remaining (%d) listeners are: %s\n' %(len(remainingListeners), [listener.pid for listener in remainingListeners]))
 
         afterJoinTime = time.time()
 
         if remainingListeners:
             delta = afterJoinTime - startTime
-            remainingSleep = int(6 - math.floor(afterJoinTime - startTime))
+            remainingSleep = int(GRACEFUL_SHUTDOWN_TIME - math.floor(afterJoinTime - startTime))
             if remainingSleep > 0:
                 anyAlive = False
                 # If we still have time left, see if we are just done or if there are children to clean up using remaining time allotment
                 if threading.activeCount() > 1 or len(multiprocessing.active_children()) > 0:
-                    sys.stderr.write('Listener closed in %1.2f seconds. Waiting up to %d seconds before terminating.\n' %(delta, remainingSleep))
-                    sys.stderr.flush()
+                    logerr('Listener closed in %1.2f seconds. Waiting up to %d seconds before terminating.\n' %(delta, remainingSleep))
                     thisThread = threading.current_thread()
                     for i in range(remainingSleep):
                         allThreads = threading.enumerate()
@@ -117,18 +132,15 @@ if __name__ == '__main__':
                         time.sleep(1)
 
                 if anyAlive is True:
-                    sys.stderr.write('Could not kill in time.\n')
+                    logerr('Could not kill in time.\n')
                 else:
-                    sys.stderr.write('Shutdown successful after %1.2f seconds.\n' %( time.time() - startTime))
-                sys.stderr.flush()
+                    logerr('Shutdown successful after %1.2f seconds.\n' %( time.time() - startTime))
                     
             else:
-                sys.stderr.write('Listener timed out in closing, exiting uncleanly.\n')
-                sys.stderr.flush()
+                logerr('Listener timed out in closing, exiting uncleanly.\n')
                 time.sleep(.05) # Why not? :P
 
-        sys.stdout.write('exiting...\n')
-        sys.stdout.flush()
+        logmsg('exiting...\n')
         signal.signal(signal.SIGTERM, signal.SIG_DFL)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         sys.exit(0)

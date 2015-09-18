@@ -1,3 +1,8 @@
+# PumpkinLB Copyright (c) 2014-2015 Tim Savannah under GPLv3.
+# You should have received a copy of the license as LICENSE 
+#
+# See: https://github.com/kata198/PumpkinLB
+
 import multiprocessing
 import select
 import signal
@@ -5,13 +10,15 @@ import socket
 import sys
 import time
 
+from .constants import GRACEFUL_SHUTDOWN_TIME, DEFAULT_BUFFER_SIZE
+from .log import logmsg, logerr
 
 class PumpkinWorker(multiprocessing.Process):
     '''
         A class which handles the worker-side of processing a request (communicating between the back-end worker and the requesting client)
     '''
 
-    def __init__(self, clientSocket, clientAddr, workerAddr, workerPort):
+    def __init__(self, clientSocket, clientAddr, workerAddr, workerPort, bufferSize=DEFAULT_BUFFER_SIZE):
         multiprocessing.Process.__init__(self)
 
         self.clientSocket = clientSocket
@@ -21,6 +28,8 @@ class PumpkinWorker(multiprocessing.Process):
         self.workerPort = workerPort
 
         self.workerSocket = None
+
+        self.bufferSize = bufferSize
 
 
         self.failedToConnect = multiprocessing.Value('i', 0)
@@ -52,12 +61,14 @@ class PumpkinWorker(multiprocessing.Process):
         workerSocket = self.workerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         clientSocket = self.clientSocket
 
+        bufferSize = self.bufferSize
+
         try:
             workerSocket.connect( (self.workerAddr, self.workerPort) )
         except:
-            sys.stderr.write('Could not connect to worker %s:%d\n' %(self.workerAddr, self.workerPort))
+            logerr('Could not connect to worker %s:%d\n' %(self.workerAddr, self.workerPort))
             self.failedToConnect.value = 1
-            time.sleep(6) # Give a few seconds for the "fail" reader to pick this guy up before we are removed by the joining thread
+            time.sleep(GRACEFUL_SHUTDOWN_TIME) # Give a few seconds for the "fail" reader to pick this guy up before we are removed by the joining thread
             return
 
         signal.signal(signal.SIGTERM, self.closeConnectionsAndExit)
@@ -80,29 +91,29 @@ class PumpkinWorker(multiprocessing.Process):
                     break
             
                 if clientSocket in hasDataForRead:
-                    nextData = clientSocket.recv(4096)
+                    nextData = clientSocket.recv(bufferSize)
                     if not nextData:
                         break
                     dataFromClient += nextData
 
                 if workerSocket in hasDataForRead:
-                    nextData = workerSocket.recv(4096)
+                    nextData = workerSocket.recv(bufferSize)
                     if not nextData:
                         break
                     dataToClient += nextData
             
                 if workerSocket in readyForWrite:
                     while dataFromClient:
-                        workerSocket.send(dataFromClient[:4096])
-                        dataFromClient = dataFromClient[4096:]
+                        workerSocket.send(dataFromClient[:bufferSize])
+                        dataFromClient = dataFromClient[bufferSize:]
 
                 if clientSocket in readyForWrite:
                     while dataToClient:
-                        clientSocket.send(dataToClient[:4096])
-                        dataToClient = dataToClient[4096:]
+                        clientSocket.send(dataToClient[:bufferSize])
+                        dataToClient = dataToClient[bufferSize:]
 
         except Exception as e:
-            sys.stderr.write('Error: ' + str(e) + '\n')
+            logerr('Error on %s:%d: %s\n' %(self.workerAddr, self.workerPort, str(e)))
 
         self.closeConnectionsAndExit()
 

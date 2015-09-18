@@ -33,7 +33,7 @@ Sections:
 
 *[options]*
 
-* pre\_resolve\_workers=0/1 - Default 1
+* pre_resolve_workers=0/1 - Default 1
 
 	Any workers defined with a hostname will be evaluated at the time the config is read.
 
@@ -47,11 +47,13 @@ Sections:
 * localaddr:inport=worker1:port,worker2:port...
 
 	Listen on interface defined by "localaddr" on port "inport". Farm out to worker addresses and ports.
+
 	Ex: 192.168.1.100:80=10.10.0.1:5900,10.10.0.2:5900
 
 * inport=worker1:port,worker2:port...
 
 	Listen on all interfaces on port "inport", and farm out to worker addresses with given ports.
+
 	Ex: 80=10.10.0.1:5900,10.10.0.2:5900
 
 

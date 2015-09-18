@@ -1,3 +1,8 @@
+# PumpkinLB Copyright (c) 2014-2015 Tim Savannah under GPLv3.
+# You should have received a copy of the license as LICENSE 
+#
+# See: https://github.com/kata198/PumpkinLB
+
 import multiprocessing
 import os
 import random
@@ -7,8 +12,9 @@ import signal
 import time
 import threading
 
+from .log import logmsg, logerr
 from .worker import PumpkinWorker
-
+from .constants import DEFAULT_BUFFER_SIZE
 
 
 class PumpkinListener(multiprocessing.Process):
@@ -17,28 +23,29 @@ class PumpkinListener(multiprocessing.Process):
     '''
 
 
-    def __init__(self, localAddr, localPort, workers):
+    def __init__(self, localAddr, localPort, workers, bufferSize=DEFAULT_BUFFER_SIZE):
         multiprocessing.Process.__init__(self)
         self.localAddr = localAddr
         self.localPort = localPort
         self.workers = workers
+        self.bufferSize = bufferSize
 
-        self.pumpkinWorkers = []
+        self.activeWorkers = []   # Workers currently processing a job
 
-        self.listenSocket = None
+        self.listenSocket = None  # Socket for incoming connections
 
-        self.cleanupThread = None
+        self.cleanupThread = None # Cleans up completed workers
 
-        self.keepGoing = True
+        self.keepGoing = True     # Flips to False when the application is set to terminate
 
     def cleanup(self):
         time.sleep(2) # Wait for things to kick off
         while self.keepGoing is True:
-            currentWorkers = self.pumpkinWorkers[:]
+            currentWorkers = self.activeWorkers[:]
             for worker in currentWorkers:
                 worker.join(.02)
-                if worker.is_alive() == False:
-                    self.pumpkinWorkers.remove(worker)
+                if worker.is_alive() == False: # Completed
+                    self.activeWorkers.remove(worker)
             time.sleep(1.5)
 
     def closeWorkers(self, *args):
@@ -55,12 +62,12 @@ class PumpkinListener(multiprocessing.Process):
         except:
             pass
 
-        if not self.pumpkinWorkers:
+        if not self.activeWorkers:
             self.cleanupThread and self.cleanupThread.join(3)
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
             sys.exit(0)
 
-        for pumpkinWorker in self.pumpkinWorkers:
+        for pumpkinWorker in self.activeWorkers:
             try:
                 pumpkinWorker.terminate()
                 os.kill(pumpkinWorker.pid, signal.SIGTERM)
@@ -71,12 +78,13 @@ class PumpkinListener(multiprocessing.Process):
 
 
         remainingWorkers = []
-        for pumpkinWorker in self.pumpkinWorkers:
+        for pumpkinWorker in self.activeWorkers:
             pumpkinWorker.join(.03)
-            if pumpkinWorker.is_alive() is True:
+            if pumpkinWorker.is_alive() is True: # Still running
                 remainingWorkers.append(pumpkinWorker)
 
         if len(remainingWorkers) > 0:
+            # One last chance to complete, then we kill
             time.sleep(1)
             for pumpkinWorker in remainingWorkers:
                 pumpkinWorker.join(.2)
@@ -88,24 +96,37 @@ class PumpkinListener(multiprocessing.Process):
         sys.exit(0)
 
     def retryFailedWorkers(self, *args):
+        '''
+            retryFailedWorkers - 
+
+                This function loops over current running workers and scans them for a multiprocess shared field called "failedToConnect".
+                  If this is set to 1, then we failed to connect to the backend worker. If that happens, we pick a different worker from the pool at random,
+                  and assign the client to that new worker.
+        '''
+
+
         time.sleep(2)
         successfulRuns = 0 # We use this to differ between long waits in between successful periods and short waits when there is a failing host in the mix.
         while self.keepGoing is True:
-            currentWorkers = self.pumpkinWorkers[:]
+            currentWorkers = self.activeWorkers[:]
             for worker in currentWorkers:
                 if worker.failedToConnect.value == 1:
-                    successfulRuns = -1
-                    sys.stdout.write('Found a failure to connect to worker\n')
-                    sys.stdout.flush()
+                    successfulRuns = -1 # Reset the "roll" of successful runs so we start doing shorter sleeps
+                    logmsg('Found a failure to connect to worker\n')
                     numWorkers = len(self.workers)
-                    nextWorkerInfo = None
-                    while (nextWorkerInfo is None) or (worker.workerAddr == nextWorkerInfo['addr'] and worker.workerPort == nextWorkerInfo['port']):
-                        nextWorkerInfo = self.workers[random.randint(0, numWorkers-1)]
-                    sys.stdout.write('Retrying request from %s from %s:%d on %s:%d\n' %(worker.clientAddr, worker.workerAddr, worker.workerPort, nextWorkerInfo['addr'], nextWorkerInfo['port']))
-                    sys.stdout.flush()
-                    nextWorker = PumpkinWorker(worker.clientSocket, worker.clientAddr, nextWorkerInfo['addr'], nextWorkerInfo['port'])
+                    if numWorkers > 1:
+                        nextWorkerInfo = None
+                        while (nextWorkerInfo is None) or (worker.workerAddr == nextWorkerInfo['addr'] and worker.workerPort == nextWorkerInfo['port']):
+                            nextWorkerInfo = self.workers[random.randint(0, numWorkers-1)]
+                    else:
+                        # In this case, we have no option but to try on the same host.
+                        nextWorkerInfo = self.workers[0]
+
+                    logmsg('Retrying request from %s from %s:%d on %s:%d\n' %(worker.clientAddr, worker.workerAddr, worker.workerPort, nextWorkerInfo['addr'], nextWorkerInfo['port']))
+
+                    nextWorker = PumpkinWorker(worker.clientSocket, worker.clientAddr, nextWorkerInfo['addr'], nextWorkerInfo['port'], self.bufferSize)
                     nextWorker.start()
-                    self.pumpkinWorkers.append(nextWorker)
+                    self.activeWorkers.append(nextWorker)
                     worker.failedToConnect.value = 0 # Clean now
             successfulRuns += 1
             if successfulRuns > 1000000: # Make sure we don't overrun
@@ -127,36 +148,40 @@ class PumpkinListener(multiprocessing.Process):
                 self.listenSocket = listenSocket
                 break
             except Exception as e:
-                sys.stderr.write('Failed to bind to %s:%d. "%s" Retrying in 5 seconds.\n' %(self.localAddr, self.localPort, str(e)))
+                logerr('Failed to bind to %s:%d. "%s" Retrying in 5 seconds.\n' %(self.localAddr, self.localPort, str(e)))
                 time.sleep(5)
 
         listenSocket.listen(5)
 
+        # Create thread that will cleanup completed tasks
         self.cleanupThread = cleanupThread = threading.Thread(target=self.cleanup)
         cleanupThread.start()
-        if len(self.workers) > 1:
-            retryThread = threading.Thread(target=self.retryFailedWorkers)
-            retryThread.start()
+
+        # Create thread that will retry failed tasks
+        retryThread = threading.Thread(target=self.retryFailedWorkers)
+        retryThread.start()
 
         try:
-            while True:
+            while self.keepGoing is True:
                 for workerInfo in self.workers:
                     if self.keepGoing is False:
                         break
                     try:
                         (clientConnection, clientAddr) = listenSocket.accept()
                     except:
-                        sys.stderr.write('Cannot bind to %s:%s\n' %(self.localAddr, self.localPort))
+                        logerr('Cannot bind to %s:%s\n' %(self.localAddr, self.localPort))
                         if self.keepGoing is True:
+                            # Exception did not come from termination process, so keep rollin'
                             time.sleep(3)
                             continue
                         
-                        raise
-                    worker = PumpkinWorker(clientConnection, clientAddr, workerInfo['addr'], workerInfo['port'])
-                    self.pumpkinWorkers.append(worker)
+                        raise # Termination DID come from termination process, so abort.
+
+                    worker = PumpkinWorker(clientConnection, clientAddr, workerInfo['addr'], workerInfo['port'], self.bufferSize)
+                    self.activeWorkers.append(worker)
                     worker.start()
         except Exception as e:
-            sys.stderr.write('Got exception: %s, shutting down worker on %s:%d\n' %(str(e), self.localAddr, self.localPort))
+            logerr('Got exception: %s, shutting down workers on %s:%d\n' %(str(e), self.localAddr, self.localPort))
             self.closeWorkers()
             return
 

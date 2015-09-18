@@ -1,0 +1,9 @@
+recursive-include pumpkinlb *.py
+include ChangeLog
+include setup.py
+include MANIFEST.in
+include README.md
+include README.rst
+include PumpkinLB.py
+include LICENSE
+include example.cfg

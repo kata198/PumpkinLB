@@ -1,0 +1,11 @@
+- 1.4 Sep 18 2015
+ * Cleanup a lot of code
+ * Add additional comments
+ * Support retries when only one worker is configured
+ * Support configurable buffer sizes
+ * Add timestamps to all log messages
+ * Fix usage text
+ * Update README to be nicer format
+ * Add --version support
+ * remove old install.sh script
+ * Other Minor adjustments and cleanups

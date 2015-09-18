@@ -1,3 +1,8 @@
+# PumpkinLB Copyright (c) 2014-2015 Tim Savannah under GPLv3.
+# You should have received a copy of the license as LICENSE 
+#
+# See: https://github.com/kata198/PumpkinLB
+
 import sys
 import socket
 try:
@@ -5,6 +10,8 @@ try:
 except:
     from configparser import ConfigParser
 
+from .constants import DEFAULT_BUFFER_SIZE
+from .log import logmsg, logerr
 
 class PumpkinMapping(object):
     '''
@@ -46,7 +53,8 @@ class PumpkinConfig(ConfigParser):
         self.configFilename = configFilename
 
         self._options = {
-            'pre_resolve_workers' : True
+            'pre_resolve_workers' : True,
+            'buffer_size'         : DEFAULT_BUFFER_SIZE,
         }
         self._mappings = {}
 
@@ -57,7 +65,7 @@ class PumpkinConfig(ConfigParser):
         try:
             f = open(self.configFilename, 'r')
         except IOError as e:
-            sys.stderr.write('Could not parse config file: "%s": %s\n' %(self.configFilename, str(e)))
+            logerr('Could not parse config file: "%s": %s\n' %(self.configFilename, str(e)))
             raise e
         [self.remove_section(s) for s in self.sections()]
         self.readfp(f)
@@ -72,6 +80,13 @@ class PumpkinConfig(ConfigParser):
         '''
         return self._options
 
+    def getOptionValue(self, optionName):
+        '''
+            getOptionValue - Gets the value of an option
+        '''
+
+        return self._options[optionName]
+
     def getMappings(self):
         '''
             Gets the mappings dictionary
@@ -79,6 +94,7 @@ class PumpkinConfig(ConfigParser):
         return self._mappings
 
     def _processOptions(self):
+        # I personally think the config parser interface sucks...
         try:
             preResolveWorkers = self.get('options', 'pre_resolve_workers')
             if preResolveWorkers == '1' or preResolveWorkers.lower() == 'true':
@@ -86,9 +102,18 @@ class PumpkinConfig(ConfigParser):
             elif preResolveWorkers == '0' or preResolveWorkers.lower() == 'false':
                 self._options['pre_resolve_workers'] = False
             else:
-                sys.stderr.write('WARNING: Unknown value for [options] -> pre_resolve_workers "%s" -- ignoring value, retaining previous "%s"\n' %(str(preResolveWorkers), str(self._options['pre_resolve_workers'])))
+                logerr('WARNING: Unknown value for [options] -> pre_resolve_workers "%s" -- ignoring value, retaining previous "%s"\n' %(str(preResolveWorkers), str(self._options['pre_resolve_workers'])) )
         except:
             pass
+
+        try:
+            bufferSize = self.get('options', 'buffer_size')
+            if bufferSize.isdigit() and int(bufferSize) > 0:
+                self._options['buffer_size'] = int(bufferSize)
+            else:
+                logerr('WARNING: buffer_size must be an integer > 0 (bytes). Got "%s" -- ignoring value, retaining previous "%s"\n' %(bufferSize, str(self._options['buffer_size'])) )
+        except Exception as e:
+            logerr('Error parsing config: %s\n' %(str(e),))
 
     def _processMappings(self):
         preResolveWorkers = self._options['pre_resolve_workers']
@@ -100,42 +125,42 @@ class PumpkinConfig(ConfigParser):
             addrPortSplit = addrPort.split(':')
             addrPortSplitLen = len(addrPortSplit)
             if not workers:
-                sys.stderr.write('WARNING: Skipping, no workers defined for %s\n' %(addrPort,))
+                logerr('WARNING: Skipping, no workers defined for %s\n' %(addrPort,))
                 continue
             if addrPortSplitLen == 1:
                 (localAddr, localPort) = ('0.0.0.0', addrPort)
             elif addrPortSplitLen == 2:
                 (localAddr, localPort) = addrPortSplit
             else:
-                sys.stderr.write('WARNING: Skipping Invalid mapping: %s=%s\n' %(addrPort, workers))
+                logerr('WARNING: Skipping Invalid mapping: %s=%s\n' %(addrPort, workers))
                 continue
             try:
                 localPort = int(localPort)
             except ValueError:
-                sys.stderr.write('WARNING: Skipping Invalid mapping, cannot convert port: %s\n' %(addrPort,))
+                logerr('WARNING: Skipping Invalid mapping, cannot convert port: %s\n' %(addrPort,))
                 continue
 
             workerLst = []
             for worker in workers.split(','):
                 workerSplit = worker.split(':')
                 if len(workerSplit) != 2 or len(workerSplit[0]) < 3 or len(workerSplit[1]) == 0:
-                    sys.stderr.write('WARNING: Skipping Invalid Worker %s\n' %(worker,))
+                    logerr('WARNING: Skipping Invalid Worker %s\n' %(worker,))
 
                 if preResolveWorkers is True:
                     try:
                         addr = socket.gethostbyname(workerSplit[0])
                     except:
-                        sys.stderr.write('WARNING: Skipping Worker, could not resolve %s\n' %(workerSplit[0],))
+                        logerr('WARNING: Skipping Worker, could not resolve %s\n' %(workerSplit[0],))
                 else:
                     addr = workerSplit[0]
                 try:
                     port = int(workerSplit[1])
                 except ValueError:
-                    sys.stderr.write('WARNING: Skipping worker, could not parse port %s\n' %(workerSplit[1],))
+                    logerr('WARNING: Skipping worker, could not parse port %s\n' %(workerSplit[1],))
 
                 workerLst.append({'addr' : addr, 'port' : port})
             if mappings.has_key(localAddr + ':' + addrPort):
-                sys.stderr.write('WARNING: Overriding existing mapping of %s with %s\n' %(addrPort, str(workerLst)))
+                logerr('WARNING: Overriding existing mapping of %s with %s\n' %(addrPort, str(workerLst)))
             mappings[addrPort] = PumpkinMapping(localAddr, localPort, workerLst)
 
         self._mappings = mappings
