@@ -41,12 +41,3 @@ Sending SIGTERM, SIGINT, or pressing control+c will do a graceful shutdown (it w
 
 Requests are generally handled round-robin between the various workers. If a request fails on a backend worker, it will be retried on another random worker until it succeeds, and a message will be logged.
 
-
-Installation
-============
-
-PumpkinLB comes with an install.sh script, which will install in the default location for python 2.7, or python 2.6.
-
-As an alternative, you can copy the "pumpkinlb" folder to your site packages folder, and "PumpkinLB.py" to your bin folder.
-
-As yet another alternative, this can run standalone anywhere, so long as "pumpkinlb" folder is within the same directory (or otherwise PYTHONPATH) as PumpkinLB.py
