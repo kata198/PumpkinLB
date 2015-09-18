@@ -42,7 +42,7 @@ The Config file is broken up into sections, definable by [$SectionName], followe
 
 * buffer\_size=N - Default 4096
 
-	 Default read/write buffer size used on socket operations. 4096 is a good default for most, but you may be able to tune better depending on your application.
+	 Default read/write buffer size (in bytes) used on socket operations. 4096 is a good default for most, but you may be able to tune better depending on your application.
 
 
 *[mapping]*

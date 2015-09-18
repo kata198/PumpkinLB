@@ -7,7 +7,7 @@ except:
     long_description = "See README"
 
 setup(name='PumpkinLB',
-        version='1.4',
+        version='1.4.0',
         scripts=['PumpkinLB.py'],
         packages=['pumpkinlb'],
         author='Tim Savannah',

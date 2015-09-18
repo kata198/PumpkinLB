@@ -43,7 +43,7 @@ Config file is broken up into sections, definable by [$SectionName], followed by
                                                                    This is preferable as it saves a DNS trip for every request, and should be enabled
                                                                    unless your DNS is likely to change and you want the workers to match the change.
 
-      buffer_size=N                             [Default %d]   Default read/write buffer size used on socket operations. 4096 is a good default for most, but you may be able to tune better depending on your application.
+      buffer_size=N                             [Default %d]   Default read/write buffer size (in bytes) used on socket operations. 4096 is a good default for most, but you may be able to tune better depending on your application.
 
     [mapping]
       localaddr:inport=worker1:port,worker2:port...              Listen on interface defined by "localaddr" on port "inport". Farm out to worker addresses and ports. Ex: 192.168.1.100:80=10.10.0.1:5900,10.10.0.2:5900
