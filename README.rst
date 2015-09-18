@@ -24,11 +24,9 @@ Execute by running PumpkinLB.py [cfgFile]
 Where [cfgFile] is the path to your config file. There is a sample "example.cfg" included.
 
 
-**Config**
+**Config Sections**
 
 The Config file is broken up into sections, definable by [$SectionName], followed by variables in format of key=value.
-
-Sections:
 
 
 *[options]*
@@ -40,6 +38,12 @@ Sections:
 	This is preferable as it saves a DNS trip for every request, and should be enabled 
 
 	unless your DNS is likely to change and you want the workers to match the change.
+
+
+* buffer_size=N - Default 4096
+
+	 Default read/write buffer size used on socket operations. 4096 is a good default for most, but you may be able to tune better depending on your application.
+
 
 
 *[mapping]*
