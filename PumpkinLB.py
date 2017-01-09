@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 #
 # PumpkinLB Copyright (c) 2014-2015 Tim Savannah under GPLv3.
 # You should have received a copy of the license as LICENSE 
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     mappings = pumpkinConfig.getMappings()
     listeners = []
-    for mappingAddr, mapping in mappings.iteritems():
+    for mappingAddr, mapping in mappings.items():
         logmsg('Starting up listener on %s:%d with mappings: %s\n' %(mapping.localAddr, mapping.localPort, str(mapping.workers)))
         listener = PumpkinListener(mapping.localAddr, mapping.localPort, mapping.workers, bufferSize)
         listener.start()
