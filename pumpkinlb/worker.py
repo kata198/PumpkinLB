@@ -74,8 +74,8 @@ class PumpkinWorker(multiprocessing.Process):
         signal.signal(signal.SIGTERM, self.closeConnectionsAndExit)
 
         try:
-            dataToClient = bytes()
-            dataFromClient = bytes()
+            dataToClient = b''
+            dataFromClient = b''
             while True:
                 waitingToWrite = []
 

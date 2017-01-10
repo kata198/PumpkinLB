@@ -22,10 +22,10 @@ class PumpkinMapping(object):
         self.localAddr = localAddr or ''
         self.localPort = int(localPort)
         self.workers = workers
-    
+
     def getListenerArgs(self):
         return [self.localAddr, self.localPort, self.workers]
-    
+
     def addWorker(self, workerAddr, workerPort):
         self.workers.append( {'port' : int(workerPort), 'addr' : workerAddr} )
 
@@ -159,10 +159,12 @@ class PumpkinConfig(ConfigParser):
                     logerr('WARNING: Skipping worker, could not parse port %s\n' %(workerSplit[1],))
 
                 workerLst.append({'addr' : addr, 'port' : port})
-            if mappings.has_key(localAddr + ':' + addrPort):
+
+            keyName = "%s:%s" %(localAddr, addrPort)
+            if keyName in mappings:
                 logerr('WARNING: Overriding existing mapping of %s with %s\n' %(addrPort, str(workerLst)))
             mappings[addrPort] = PumpkinMapping(localAddr, localPort, workerLst)
 
         self._mappings = mappings
-          
+
 # vim: ts=4 sw=4 expandtab
