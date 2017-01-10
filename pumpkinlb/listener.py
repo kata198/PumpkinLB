@@ -144,6 +144,14 @@ class PumpkinListener(multiprocessing.Process):
         while True:
             try:
                 listenSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+                # If on UNIX, bind to port even if connections are still in TIME_WAIT state
+                #  (from previous connections, which don't ever be served...)
+                # Happens when PumpkinLB Restarts.
+                try:
+                    listenSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                except:
+                    pass
                 listenSocket.bind( (self.localAddr, self.localPort) )
                 self.listenSocket = listenSocket
                 break
