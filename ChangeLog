@@ -1,3 +1,15 @@
+- 2.0 Jan 9 2017
+ * Add/Fix python3 support (Thanks in part to ThePrez@github)
+ * Fix documentation having "mapping" which should have been "mappings"
+ section
+ * Much better errors for config problems
+ * Allow a config to omit the "options" section without a warning message
+ * Fix the "socket in use" error when PumpkinLB is restarted after a
+ connection is made. PumpkinLB will now bind even if an existing TIME_WAIT is
+ on the local port, which allows you to listen on the previous port right
+ away.
+
+
 - 1.4 Sep 18 2015
  * Cleanup a lot of code
  * Add additional comments
