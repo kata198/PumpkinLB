@@ -45,7 +45,7 @@ The Config file is broken up into sections, definable by [$SectionName], followe
 	 Default read/write buffer size (in bytes) used on socket operations. 4096 is a good default for most, but you may be able to tune better depending on your application.
 
 
-*[mapping]*
+*[mappings]*
 
 * localaddr:inport=worker1:port,worker2:port...
 

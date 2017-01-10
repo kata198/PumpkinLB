@@ -46,7 +46,7 @@ The Config file is broken up into sections, definable by [$SectionName], followe
 
 
 
-*[mapping]*
+*[mappings]*
 
 * localaddr:inport=worker1:port,worker2:port...
 

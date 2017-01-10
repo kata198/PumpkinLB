@@ -21,7 +21,7 @@ Starts Pumpkin Load Balancer using the given config file.
     --version                      Show version information
 
   Signals:
-  
+
     SIGTERM                        Performs a graceful shutdown
 
 %s
@@ -37,7 +37,7 @@ def printConfigHelp(toStream=sys.stdout):
 Config file is broken up into sections, definable by [$SectionName], followed by variables in format of key=value.
 
   Sections:
-  
+
     [options]
       pre_resolve_workers=0/1                     [Default 1]    Any workers defined with a hostname will be evaluated at the time the config is read. 
                                                                    This is preferable as it saves a DNS trip for every request, and should be enabled
@@ -45,11 +45,11 @@ Config file is broken up into sections, definable by [$SectionName], followed by
 
       buffer_size=N                             [Default %d]   Default read/write buffer size (in bytes) used on socket operations. 4096 is a good default for most, but you may be able to tune better depending on your application.
 
-    [mapping]
+    [mappings]
       localaddr:inport=worker1:port,worker2:port...              Listen on interface defined by "localaddr" on port "inport". Farm out to worker addresses and ports. Ex: 192.168.1.100:80=10.10.0.1:5900,10.10.0.2:5900
         or
       inport=worker1:port,worker2:port...                        Listen on all interfaces on port "inport", and farm out to worker addresses with given ports. Ex: 80=10.10.0.1:5900,10.10.0.2:5900
-   
+
 ''' %(DEFAULT_BUFFER_SIZE, )
     )
 

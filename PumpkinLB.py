@@ -135,7 +135,7 @@ if __name__ == '__main__':
                     logerr('Could not kill in time.\n')
                 else:
                     logerr('Shutdown successful after %1.2f seconds.\n' %( time.time() - startTime))
-                    
+
             else:
                 logerr('Listener timed out in closing, exiting uncleanly.\n')
                 time.sleep(.05) # Why not? :P
@@ -147,7 +147,7 @@ if __name__ == '__main__':
         os.kill(os.getpid(), signal.SIGTERM)
         return 0
     # END handleSigTerm
-        
+
 
     signal.signal(signal.SIGTERM, handleSigTerm)
     signal.signal(signal.SIGINT, handleSigTerm)
