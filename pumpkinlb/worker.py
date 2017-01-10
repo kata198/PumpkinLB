@@ -85,7 +85,10 @@ class PumpkinWorker(multiprocessing.Process):
                     waitingToWrite.append(workerSocket)
                 
 
-                (hasDataForRead, readyForWrite, hasError) = select.select( [clientSocket, workerSocket], waitingToWrite, [clientSocket, workerSocket], .3)
+                try:
+                    (hasDataForRead, readyForWrite, hasError) = select.select( [clientSocket, workerSocket], waitingToWrite, [clientSocket, workerSocket], .3)
+                except KeyboardInterrupt:
+                    break
 
                 if hasError:
                     break
