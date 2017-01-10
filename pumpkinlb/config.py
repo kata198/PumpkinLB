@@ -63,9 +63,9 @@ class PumpkinConfig(ConfigParser):
             Parse the config file
         '''
         try:
-            f = open(self.configFilename, 'r')
+            f = open(self.configFilename, 'rt')
         except IOError as e:
-            logerr('Could not parse config file: "%s": %s\n' %(self.configFilename, str(e)))
+            logerr('Could not open config file: "%s": %s\n' %(self.configFilename, str(e)))
             raise e
         [self.remove_section(s) for s in self.sections()]
         self.readfp(f)
@@ -95,6 +95,9 @@ class PumpkinConfig(ConfigParser):
 
     def _processOptions(self):
         # I personally think the config parser interface sucks...
+        if 'options' not in self._sections:
+            return
+
         try:
             preResolveWorkers = self.get('options', 'pre_resolve_workers')
             if preResolveWorkers == '1' or preResolveWorkers.lower() == 'true':
@@ -113,9 +116,13 @@ class PumpkinConfig(ConfigParser):
             else:
                 logerr('WARNING: buffer_size must be an integer > 0 (bytes). Got "%s" -- ignoring value, retaining previous "%s"\n' %(bufferSize, str(self._options['buffer_size'])) )
         except Exception as e:
-            logerr('Error parsing config: %s\n' %(str(e),))
+            logerr('Error parsing [options]->buffer_size : %s. Retaining default, %s\n' %(str(e),str(DEFAULT_BUFFER_SIZE)) )
 
     def _processMappings(self):
+
+        if 'mappings' not in self._sections:
+            raise PumpkinConfigException('ERROR: Config is missing required "mappings" section.\n')
+
         preResolveWorkers = self._options['pre_resolve_workers']
 
         mappings = {}
@@ -166,5 +173,9 @@ class PumpkinConfig(ConfigParser):
             mappings[addrPort] = PumpkinMapping(localAddr, localPort, workerLst)
 
         self._mappings = mappings
+
+
+class PumpkinConfigException(Exception):
+    pass
 
 # vim: ts=4 sw=4 expandtab

@@ -18,7 +18,7 @@ import time
 
 from pumpkinlb import __version__ as pumpkin_version
 
-from pumpkinlb.config import PumpkinConfig, PumpkinMapping
+from pumpkinlb.config import PumpkinConfig, PumpkinMapping, PumpkinConfigException
 from pumpkinlb.usage import printUsage, printConfigHelp, getVersionStr
 from pumpkinlb.listener import PumpkinListener
 from pumpkinlb.constants import GRACEFUL_SHUTDOWN_TIME
@@ -56,7 +56,11 @@ if __name__ == '__main__':
     pumpkinConfig = PumpkinConfig(configFilename)
     try:
         pumpkinConfig.parse()
-    except:
+    except PumpkinConfigException as configError:
+        sys.stderr.write(str(configError) + '\n\n\n')
+        printConfigHelp()
+        sys.exit(1)
+    except Exception as e:
         traceback.print_exc(file=sys.stderr)
         printConfigHelp(sys.stderr)
         sys.exit(1)
