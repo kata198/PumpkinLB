@@ -49,6 +49,7 @@ class PumpkinListener(multiprocessing.Process):
         self.workers = workers
         self.bufferSize = bufferSize
 
+        # list< PumpkinWorker >
         self.activeWorkers = []   # Workers currently processing a job
 
         self.listenSocket = None  # Socket for incoming connections
